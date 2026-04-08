@@ -14,16 +14,332 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      client_tags: {
+        Row: {
+          client_id: string
+          tag_id: string
+        }
+        Insert: {
+          client_id: string
+          tag_id: string
+        }
+        Update: {
+          client_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_tags_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          meal_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          meal_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          meal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_comments_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meals: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          meal_type: Database["public"]["Enums"]["meal_type"]
+          notes: string | null
+          photo_url: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          meal_type: Database["public"]["Enums"]["meal_type"]
+          notes?: string | null
+          photo_url?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          meal_type?: Database["public"]["Enums"]["meal_type"]
+          notes?: string | null
+          photo_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          dietitian_id: string | null
+          full_name: string
+          goal: string | null
+          height_cm: number | null
+          id: string
+          must_change_password: boolean
+          notes: string | null
+          phone: string | null
+          sex: string | null
+          start_date: string | null
+          updated_at: string
+          weight_kg: number | null
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          dietitian_id?: string | null
+          full_name?: string
+          goal?: string | null
+          height_cm?: number | null
+          id: string
+          must_change_password?: boolean
+          notes?: string | null
+          phone?: string | null
+          sex?: string | null
+          start_date?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          dietitian_id?: string | null
+          full_name?: string
+          goal?: string | null
+          height_cm?: number | null
+          id?: string
+          must_change_password?: boolean
+          notes?: string | null
+          phone?: string | null
+          sex?: string | null
+          start_date?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_dietitian_id_fkey"
+            columns: ["dietitian_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reflection_replies: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          reflection_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          reflection_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          reflection_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reflection_replies_reflection_id_fkey"
+            columns: ["reflection_id"]
+            isOneToOne: false
+            referencedRelation: "reflections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reflections: {
+        Row: {
+          client_id: string
+          cravings_rating: number
+          created_at: string
+          hunger_rating: number
+          id: string
+          meal_id: string | null
+          notes: string | null
+          satisfaction_rating: number
+        }
+        Insert: {
+          client_id: string
+          cravings_rating: number
+          created_at?: string
+          hunger_rating: number
+          id?: string
+          meal_id?: string | null
+          notes?: string | null
+          satisfaction_rating: number
+        }
+        Update: {
+          client_id?: string
+          cravings_rating?: number
+          created_at?: string
+          hunger_rating?: number
+          id?: string
+          meal_id?: string | null
+          notes?: string | null
+          satisfaction_rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reflections_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reflections_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_goals: {
+        Row: {
+          client_id: string
+          created_at: string
+          goals: Json
+          id: string
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          goals?: Json
+          id?: string
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          goals?: Json
+          id?: string
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_goals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "dietitian" | "client"
+      meal_type: "breakfast" | "lunch" | "dinner" | "snack"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +466,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["dietitian", "client"],
+      meal_type: ["breakfast", "lunch", "dinner", "snack"],
+    },
   },
 } as const
