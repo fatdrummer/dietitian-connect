@@ -1,78 +1,77 @@
 
 
-## NutriTrack — Dietitian & Client Management MVP
+## Plan: Rework Goals, Meals, and Login
 
-### Design System
-- **Palette**: White backgrounds, gray-100/200 surfaces, muted teal (#0D9488) as primary accent, soft borders
-- **Typography**: Inter font, clean hierarchy — large headings, readable body text
-- **Style**: Clinical healthcare SaaS — clean cards, subtle shadows, no playful elements
-- **Responsive**: Mobile-first for client views, desktop-optimized for dietitian views
+This is a significant rework touching the database schema, several pages, and the login flow. Here's what changes:
 
-### Data Model (Supabase)
+### 1. Database Changes
 
-**profiles** — id (FK auth.users), full_name, phone, date_of_birth, sex, height_cm, weight_kg, goal, start_date, notes, role (via user_roles), must_change_password (boolean), dietitian_id (FK profiles, nullable — null for dietitians)
+**Update `meal_type` enum** — Add `snack_1`, `snack_2`, `other` values. Remove `snack`.
 
-**user_roles** — id, user_id (FK auth.users), role (enum: dietitian, client)
+**Add `meal_date` column to `meals`** — A `date` field so clients pick which day the meal belongs to (not just `created_at`).
 
-**tags** — id, name, created_by (FK auth.users)
+**Rework `weekly_goals` table** — Replace `week_start` with two fields:
+- `start_date` (date) — when the goal period begins
+- `end_date` (date) — dietitian-chosen end date
+- Goals are auto-split into 7-day periods on the frontend for display/tracking
 
-**client_tags** — client_id (FK profiles), tag_id (FK tags)
+### 2. Login Page — Two Distinct Paths
 
-**weekly_goals** — id, client_id, week_start (date, always Monday), goals (jsonb array of {text, checked_days: boolean[7]})
+Replace the single login form with two clearly separated options:
+- "I'm a Dietitian" button → shows dietitian login form (with signup link)
+- "I'm a Client" button → shows client login form (no signup link, since clients are created by dietitians)
 
-**meals** — id, client_id, photo_url, meal_type (enum: breakfast/lunch/dinner/snack), notes, created_at
+Both use the same `signInWithPassword` under the hood; the role check after login still determines routing.
 
-**meal_comments** — id, meal_id (FK meals), author_id, content, created_at
+### 3. Client Home = Goal Tracker
 
-**reflections** — id, client_id, meal_id (FK meals, nullable), hunger_rating (1-5), cravings_rating (1-5), satisfaction_rating (1-5), notes (text), created_at
+When a client logs in, they land directly on the goal tracker (merge current Dashboard into Goals page):
+- Shows active goals with their current 7-day period
+- Each goal row: text + 7 day checkboxes (Mon–Sun labels based on the period start day)
+- Checked boxes turn **green**
+- Below each goal: **"Total for week: X/7 (Y%)"** counter showing checked days and percentage
+- Bottom-right: floating action button (FAB) with camera icon → opens meal upload flow
 
-**reflection_replies** — id, reflection_id (FK reflections), author_id, content, created_at
+### 4. Meal Upload Flow (Step-by-step)
 
-**Storage bucket**: `meal-photos` (public read, authenticated upload)
+Triggered by the FAB on the goals page:
+1. **Step 1**: Pick the day (Monday through Sunday of current period)
+2. **Step 2**: Pick meal type (Breakfast, Snack 1, Snack 2, Lunch, Dinner, Other)
+3. **Step 3**: Camera opens automatically (`capture="environment"`)
+4. **Step 4**: After photo taken, show preview + text area for comments → Submit
 
-### Authentication & Security
-- Dietitian self-registers via email/password signup
-- Dietitian creates client accounts via Supabase Admin API (edge function) — generates a temporary password, displays it once
-- Client logs in → `must_change_password` flag detected → forced to change password before proceeding
-- RLS on all tables: clients see only their own data; dietitians see all their assigned clients' data
-- Roles stored in `user_roles` table with `has_role()` security definer function
+### 5. Meal Grid View (Both Dietitian and Client)
 
-### Pages & Flows
+Replace the current list-based meal view with a **grid/table**:
+- **Rows** = Days (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+- **Columns** = Meal types (Breakfast, Snack 1, Lunch, Snack 2, Dinner, Other)
+- Each cell shows a thumbnail of the meal photo (if uploaded), clickable to expand with comments
+- This view is used on both the client meals page and the dietitian's client profile meals tab
 
-1. **Login Page** — Email/password, routes to dietitian dashboard or client dashboard based on role
+### 6. Dietitian Goal Assignment
 
-2. **Dietitian Signup Page** — Self-registration for new dietitian accounts
+Update the ClientProfile goals tab:
+- Instead of picking a week, the dietitian enters goal texts + picks an **end date** (start date defaults to today)
+- The system auto-creates the `weekly_goals` row with `start_date` and `end_date`
+- Display splits the period into 7-day chunks for tracking
 
-3. **Dietitian Dashboard** — Summary cards: total clients, pending meal reviews, unread reflections, goals due. Recent activity feed. Quick links.
+### Technical Details
 
-4. **Client List Page** — Searchable, filterable table/grid of clients. Filter by tags (multi-select). Each row shows name, tags, last activity, adherence %.
+**Migration SQL:**
+- `ALTER TYPE meal_type ADD VALUE 'snack_1'; ALTER TYPE meal_type ADD VALUE 'snack_2'; ALTER TYPE meal_type ADD VALUE 'other';`
+- Drop old `snack` value (or keep for backward compat — safer to keep and just not show it in UI)
+- `ALTER TABLE meals ADD COLUMN meal_date date;`
+- `ALTER TABLE weekly_goals ADD COLUMN end_date date;` then rename `week_start` → `start_date`
 
-5. **New Client Setup Page** — Form with: full name, email, phone, date of birth, sex, height (cm), weight (kg), goal, start date, notes. Tag picker (predefined suggestions + custom input). On submit: creates auth account, shows temporary password in a modal for the dietitian to copy/share.
-
-6. **Client Profile Page (Dietitian view)** — Overview tab: client info, tags, adherence stats. Goals tab: current & past weekly goals. Meals tab: photo grid with comments. Reflections tab: structured ratings + replies.
-
-7. **Weekly Goals Page (Dietitian)** — Assign text-based goals for a given week (Mon–Sun). View past weeks.
-
-8. **Meal Review Page (Dietitian)** — Feed of recent meal uploads across clients. Click to view photo, notes, meal type. Add comments.
-
-9. **Reflection Inbox (Dietitian)** — List of client reflections with hunger/cravings/satisfaction ratings. Reply inline.
-
-10. **Client Dashboard** — Welcome message, current week's goals checklist, recent feedback from dietitian.
-
-11. **Client Goals View** — Monday–Sunday checklist. Tap to check off each goal per day.
-
-12. **Client Meal Upload Page** — Photo upload, select meal type, add notes. Mobile-optimized camera flow.
-
-13. **Client Reflections Page** — Structured form: hunger (1-5), cravings (1-5), satisfaction (1-5), free-text notes. Optionally link to a meal entry. View dietitian replies.
-
-14. **Force Password Change Page** — Shown on first login when `must_change_password` is true.
-
-### Edge Functions
-- **create-client**: Creates auth user with temporary password, inserts profile + role, returns credentials
-- Secured with dietitian role check
-
-### MVP Scope Boundaries
-- No reminders, appointments, weight/water tracking, or exports (future features)
-- Single-dietitian-per-client (no shared clients)
-- No real-time updates (polling or manual refresh)
+**Files to create/modify:**
+- `src/pages/Login.tsx` — Two-path login UI
+- `src/pages/client/Goals.tsx` — Becomes the main client landing page with goal tracker + FAB
+- `src/pages/client/Meals.tsx` — Grid view replacing list
+- `src/components/MealGrid.tsx` — Shared grid component (days × meal types)
+- `src/components/MealUploadFlow.tsx` — Multi-step upload dialog
+- `src/pages/dietitian/ClientProfile.tsx` — Updated goals tab with end-date picker
+- `src/pages/client/Dashboard.tsx` — Redirect to /client/goals or merge content
+- `src/components/ClientLayout.tsx` — Remove separate Goals nav, add FAB
+- `src/App.tsx` — Update routing so `/client` renders goals page
+- `src/types/index.ts` — Update types for new schema
 
