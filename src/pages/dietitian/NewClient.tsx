@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import DietitianLayout from '@/components/DietitianLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +26,7 @@ const NewClient = () => {
   const [copied, setCopied] = useState(false);
 
   const [form, setForm] = useState({
-    full_name: '', email: '', phone: '', date_of_birth: '', sex: '',
-    height_cm: '', weight_kg: '', goal: '', start_date: '', notes: '',
+    first_name: '', last_name: '', email: '', soma_id: '', sex: '', notes: '',
   });
   const [tags, setTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState('');
@@ -50,11 +49,12 @@ const NewClient = () => {
     try {
       const { data, error } = await supabase.functions.invoke('create-client', {
         body: {
-          ...form,
-          height_cm: form.height_cm ? parseFloat(form.height_cm) : null,
-          weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
-          date_of_birth: form.date_of_birth || null,
-          start_date: form.start_date || null,
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: form.email,
+          soma_id: form.soma_id || null,
+          sex: form.sex || null,
+          notes: form.notes || null,
         },
       });
 
@@ -110,20 +110,20 @@ const NewClient = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Full Name *</Label>
-                <Input value={form.full_name} onChange={(e) => update('full_name', e.target.value)} required />
+                <Label>First Name *</Label>
+                <Input value={form.first_name} onChange={(e) => update('first_name', e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Last Name *</Label>
+                <Input value={form.last_name} onChange={(e) => update('last_name', e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label>Email *</Label>
                 <Input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} required />
               </div>
               <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input value={form.phone} onChange={(e) => update('phone', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Date of Birth</Label>
-                <Input type="date" value={form.date_of_birth} onChange={(e) => update('date_of_birth', e.target.value)} />
+                <Label>SOMA ID</Label>
+                <Input value={form.soma_id} onChange={(e) => update('soma_id', e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Sex</Label>
@@ -136,23 +136,6 @@ const NewClient = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Height (cm)</Label>
-                <Input type="number" value={form.height_cm} onChange={(e) => update('height_cm', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Weight (kg)</Label>
-                <Input type="number" value={form.weight_kg} onChange={(e) => update('weight_kg', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Start Date</Label>
-                <Input type="date" value={form.start_date} onChange={(e) => update('start_date', e.target.value)} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Goal</Label>
-              <Input value={form.goal} onChange={(e) => update('goal', e.target.value)} placeholder="e.g., Lose 5kg in 3 months" />
             </div>
 
             <div className="space-y-2">

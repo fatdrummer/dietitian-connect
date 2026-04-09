@@ -17,11 +17,11 @@ const MealReview = () => {
   useEffect(() => {
     if (!user) return;
     const fetch = async () => {
-      const { data: clients } = await supabase.from('profiles').select('id, full_name').eq('dietitian_id', user.id);
+      const { data: clients } = await supabase.from('profiles').select('id, first_name, last_name').eq('dietitian_id', user.id);
       const { data: allMeals } = await supabase.from('meals').select('*').order('created_at', { ascending: false });
       const { data: allComments } = await supabase.from('meal_comments').select('*');
 
-      const clientMap = new Map((clients ?? []).map((c) => [c.id, c.full_name]));
+      const clientMap = new Map((clients ?? []).map((c) => [c.id, `${c.first_name} ${c.last_name}`.trim()]));
       const enriched = (allMeals ?? [])
         .filter((m) => clientMap.has(m.client_id))
         .map((m) => ({ ...m, client_name: clientMap.get(m.client_id) ?? 'Unknown' }));

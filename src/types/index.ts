@@ -4,18 +4,15 @@ export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export interface Profile {
   id: string;
-  full_name: string;
-  phone: string | null;
-  date_of_birth: string | null;
+  first_name: string;
+  last_name: string;
+  soma_id: string | null;
   sex: string | null;
-  height_cm: number | null;
-  weight_kg: number | null;
-  goal: string | null;
-  start_date: string | null;
   notes: string | null;
   must_change_password: boolean;
   dietitian_id: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Tag {

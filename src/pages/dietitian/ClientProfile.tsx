@@ -103,12 +103,14 @@ const ClientProfile = () => {
 
   if (!profile) return <DietitianLayout><p>Loading…</p></DietitianLayout>;
 
+  const fullName = `${profile.first_name} ${profile.last_name}`.trim();
   const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
     <DietitianLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">{profile.full_name}</h1>
+        <h1 className="text-2xl font-bold">{fullName}</h1>
+        {profile.soma_id && <p className="text-sm text-muted-foreground">SOMA ID: {profile.soma_id}</p>}
         <div className="flex flex-wrap gap-1.5 mt-1">
           {tags.map((t) => <Badge key={t.id} variant="secondary">{t.name}</Badge>)}
         </div>
@@ -125,13 +127,8 @@ const ClientProfile = () => {
         <TabsContent value="overview">
           <Card>
             <CardContent className="pt-6 grid gap-3 sm:grid-cols-2">
-              <div><span className="text-sm text-muted-foreground">Phone:</span> <span>{profile.phone ?? '—'}</span></div>
-              <div><span className="text-sm text-muted-foreground">DOB:</span> <span>{profile.date_of_birth ?? '—'}</span></div>
               <div><span className="text-sm text-muted-foreground">Sex:</span> <span>{profile.sex ?? '—'}</span></div>
-              <div><span className="text-sm text-muted-foreground">Height:</span> <span>{profile.height_cm ? `${profile.height_cm} cm` : '—'}</span></div>
-              <div><span className="text-sm text-muted-foreground">Weight:</span> <span>{profile.weight_kg ? `${profile.weight_kg} kg` : '—'}</span></div>
-              <div><span className="text-sm text-muted-foreground">Goal:</span> <span>{profile.goal ?? '—'}</span></div>
-              <div><span className="text-sm text-muted-foreground">Start Date:</span> <span>{profile.start_date ?? '—'}</span></div>
+              <div><span className="text-sm text-muted-foreground">SOMA ID:</span> <span>{profile.soma_id ?? '—'}</span></div>
               <div className="sm:col-span-2"><span className="text-sm text-muted-foreground">Notes:</span> <span>{profile.notes ?? '—'}</span></div>
             </CardContent>
           </Card>

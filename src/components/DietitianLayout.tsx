@@ -28,7 +28,7 @@ const DietitianLayout = ({ children }: { children: React.ReactNode }) => {
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted-foreground md:block">{profile?.full_name}</span>
+            <span className="hidden text-sm text-muted-foreground md:block">{profile?.first_name} {profile?.last_name}</span>
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-4 w-4" />
             </Button>
