@@ -19,7 +19,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Verify the caller is a dietitian
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -38,7 +37,6 @@ Deno.serve(async (req: Request) => {
 
     const dietitianId = claims.claims.sub;
 
-    // Check dietitian role
     const { data: roleCheck } = await supabaseUser.from("user_roles").select("role").eq("user_id", dietitianId).single();
     if (roleCheck?.role !== "dietitian") {
       return new Response(JSON.stringify({ error: "Only dietitians can create clients" }), {
@@ -48,19 +46,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { email, full_name, phone, date_of_birth, sex, height_cm, weight_kg, goal, start_date, notes } = body;
+    const { email, first_name, last_name, soma_id, sex, notes } = body;
 
-    if (!email || !full_name) {
-      return new Response(JSON.stringify({ error: "Email and full name are required" }), {
+    if (!email || !first_name || !last_name) {
+      return new Response(JSON.stringify({ error: "Email, first name, and last name are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Generate a temporary password
     const tempPassword = crypto.randomUUID().slice(0, 12) + "A1!";
 
-    // Use service role to create the user
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -70,7 +66,7 @@ Deno.serve(async (req: Request) => {
       email,
       password: tempPassword,
       email_confirm: true,
-      user_metadata: { full_name, role: "client" },
+      user_metadata: { full_name: `${first_name} ${last_name}`, role: "client" },
     });
 
     if (createError) {
@@ -84,13 +80,10 @@ Deno.serve(async (req: Request) => {
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
-        phone,
-        date_of_birth,
+        first_name,
+        last_name,
+        soma_id,
         sex,
-        height_cm,
-        weight_kg,
-        goal,
-        start_date,
         notes,
         must_change_password: true,
         dietitian_id: dietitianId,

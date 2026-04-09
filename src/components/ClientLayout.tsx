@@ -20,7 +20,7 @@ const ClientLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="container flex h-14 items-center justify-between">
           <span className="text-lg font-bold text-primary">NutriTrack</span>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">{profile?.full_name}</span>
+            <span className="text-sm text-muted-foreground">{profile?.first_name} {profile?.last_name}</span>
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-4 w-4" />
             </Button>

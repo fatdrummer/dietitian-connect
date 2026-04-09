@@ -65,7 +65,7 @@ const ClientDashboard = () => {
 
   return (
     <ClientLayout>
-      <h1 className="text-xl font-bold mb-1">Welcome, {profile?.full_name}</h1>
+      <h1 className="text-xl font-bold mb-1">Welcome, {profile?.first_name}</h1>
       <p className="text-sm text-muted-foreground mb-4">Here's your overview for the week.</p>
 
       <Card className="mb-4">

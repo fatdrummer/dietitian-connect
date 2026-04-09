@@ -49,9 +49,12 @@ const ClientList = () => {
     fetch();
   }, [user]);
 
+  const fullName = (c: ProfileRow) => `${c.first_name} ${c.last_name}`.trim();
+
   const filtered = clients.filter((c) => {
-    const matchesSearch = c.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.goal ?? '').toLowerCase().includes(search.toLowerCase());
+    const name = fullName(c).toLowerCase();
+    const matchesSearch = name.includes(search.toLowerCase()) ||
+      (c.soma_id ?? '').toLowerCase().includes(search.toLowerCase());
     const matchesTags = selectedTags.length === 0 || c.tags.some((t) => selectedTags.includes(t.id));
     return matchesSearch && matchesTags;
   });
@@ -103,8 +106,8 @@ const ClientList = () => {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-semibold">{client.full_name}</p>
-                      <p className="text-sm text-muted-foreground">{client.goal ?? 'No goal set'}</p>
+                      <p className="font-semibold">{fullName(client)}</p>
+                      {client.soma_id && <p className="text-sm text-muted-foreground">SOMA: {client.soma_id}</p>}
                     </div>
                   </div>
                   {client.tags.length > 0 && (

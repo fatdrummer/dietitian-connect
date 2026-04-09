@@ -114,51 +114,39 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
-          date_of_birth: string | null
           dietitian_id: string | null
-          full_name: string
-          goal: string | null
-          height_cm: number | null
+          first_name: string
           id: string
+          last_name: string
           must_change_password: boolean
           notes: string | null
-          phone: string | null
           sex: string | null
-          start_date: string | null
+          soma_id: string | null
           updated_at: string
-          weight_kg: number | null
         }
         Insert: {
           created_at?: string
-          date_of_birth?: string | null
           dietitian_id?: string | null
-          full_name?: string
-          goal?: string | null
-          height_cm?: number | null
+          first_name?: string
           id: string
+          last_name?: string
           must_change_password?: boolean
           notes?: string | null
-          phone?: string | null
           sex?: string | null
-          start_date?: string | null
+          soma_id?: string | null
           updated_at?: string
-          weight_kg?: number | null
         }
         Update: {
           created_at?: string
-          date_of_birth?: string | null
           dietitian_id?: string | null
-          full_name?: string
-          goal?: string | null
-          height_cm?: number | null
+          first_name?: string
           id?: string
+          last_name?: string
           must_change_password?: boolean
           notes?: string | null
-          phone?: string | null
           sex?: string | null
-          start_date?: string | null
+          soma_id?: string | null
           updated_at?: string
-          weight_kg?: number | null
         }
         Relationships: [
           {

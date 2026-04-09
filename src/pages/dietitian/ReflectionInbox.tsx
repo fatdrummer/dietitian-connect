@@ -16,11 +16,11 @@ const ReflectionInbox = () => {
   useEffect(() => {
     if (!user) return;
     const fetch = async () => {
-      const { data: clients } = await supabase.from('profiles').select('id, full_name').eq('dietitian_id', user.id);
+      const { data: clients } = await supabase.from('profiles').select('id, first_name, last_name').eq('dietitian_id', user.id);
       const { data: allReflections } = await supabase.from('reflections').select('*').order('created_at', { ascending: false });
       const { data: allReplies } = await supabase.from('reflection_replies').select('*');
 
-      const clientMap = new Map((clients ?? []).map((c) => [c.id, c.full_name]));
+      const clientMap = new Map((clients ?? []).map((c) => [c.id, `${c.first_name} ${c.last_name}`.trim()]));
       const enriched = (allReflections ?? [])
         .filter((r) => clientMap.has(r.client_id))
         .map((r) => ({ ...r, client_name: clientMap.get(r.client_id) ?? 'Unknown' }));
