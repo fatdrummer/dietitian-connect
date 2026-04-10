@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Camera } from 'lucide-react';
+import { Camera, CalendarClock, Trophy } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import type { WeeklyGoalItem } from '@/types';
 import { DAY_LABELS } from '@/types';
@@ -18,7 +18,6 @@ const ClientGoals = () => {
   const [weeklyGoals, setWeeklyGoals] = useState<Tables<'weekly_goals'> | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
-  // Find the active goal period and compute which 7-day chunk we're in
   useEffect(() => {
     if (!user) return;
     const today = new Date().toISOString().split('T')[0];
@@ -34,7 +33,6 @@ const ClientGoals = () => {
       .then(({ data }) => setWeeklyGoals(data));
   }, [user]);
 
-  // Compute which 7-day period index we're in
   const getCurrentPeriodStart = (): string => {
     if (!weeklyGoals) return new Date().toISOString().split('T')[0];
     const start = new Date(weeklyGoals.start_date + 'T00:00:00');
@@ -49,7 +47,6 @@ const ClientGoals = () => {
 
   const periodStart = getCurrentPeriodStart();
 
-  // Day index within the current 7-day period (0-6)
   const getTodayIndex = (): number => {
     const ps = new Date(periodStart + 'T00:00:00');
     const today = new Date();
@@ -58,6 +55,14 @@ const ClientGoals = () => {
   };
 
   const todayIndex = getTodayIndex();
+
+  // Compute the valid date range for meal uploads (goal start to end)
+  const mealDateRange = weeklyGoals
+    ? {
+        start: weeklyGoals.start_date,
+        end: weeklyGoals.end_date ?? undefined,
+      }
+    : undefined;
 
   const toggleDay = async (goalIndex: number, dayIndex: number) => {
     if (!weeklyGoals) return;
@@ -81,10 +86,38 @@ const ClientGoals = () => {
 
   const goalItems = weeklyGoals ? (weeklyGoals.goals as unknown as WeeklyGoalItem[]) : [];
 
+  // Compute overall completion percentage across all goals
+  const totalChecked = goalItems.reduce((sum, g) => sum + g.checked_days.filter(Boolean).length, 0);
+  const totalPossible = goalItems.length * 7;
+  const overallPct = totalPossible > 0 ? Math.round((totalChecked / totalPossible) * 100) : 0;
+
   return (
     <ClientLayout>
       <h1 className="text-xl font-bold mb-1">Welcome, {profile?.first_name}</h1>
       <p className="text-sm text-muted-foreground mb-4">Track your goals for this week.</p>
+
+      {/* Next Appointment Date */}
+      {weeklyGoals?.end_date && (
+        <Card className="mb-4 border-primary/30 bg-primary/5">
+          <CardContent className="py-3 flex items-center gap-3">
+            <CalendarClock className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Next Appointment</p>
+              <p className="text-lg font-bold text-primary">{weeklyGoals.end_date}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Goal accomplished message */}
+      {goalItems.length > 0 && overallPct > 80 && (
+        <Card className="mb-4 border-green-500/30 bg-green-500/10">
+          <CardContent className="py-3 flex items-center gap-3">
+            <Trophy className="h-6 w-6 text-green-600" />
+            <p className="font-bold text-green-700">Goal Accomplished! Good Job! 🎉</p>
+          </CardContent>
+        </Card>
+      )}
 
       {goalItems.length === 0 ? (
         <Card>
@@ -140,7 +173,12 @@ const ClientGoals = () => {
         <Camera className="h-6 w-6" />
       </Button>
 
-      <MealUploadFlow open={showUpload} onClose={() => setShowUpload(false)} periodStart={periodStart} />
+      <MealUploadFlow
+        open={showUpload}
+        onClose={() => setShowUpload(false)}
+        periodStart={periodStart}
+        dateRange={mealDateRange}
+      />
     </ClientLayout>
   );
 };

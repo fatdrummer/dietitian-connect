@@ -12,12 +12,13 @@ import type { MealType } from '@/types';
 interface MealUploadFlowProps {
   open: boolean;
   onClose: () => void;
-  periodStart: string; // ISO date string for the current 7-day period start
+  periodStart: string;
+  dateRange?: { start: string; end?: string };
 }
 
 type Step = 'day' | 'type' | 'photo' | 'confirm';
 
-const MealUploadFlow = ({ open, onClose, periodStart }: MealUploadFlowProps) => {
+const MealUploadFlow = ({ open, onClose, periodStart, dateRange }: MealUploadFlowProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -30,7 +31,6 @@ const MealUploadFlow = ({ open, onClose, periodStart }: MealUploadFlowProps) => 
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  // Reset state when dialog opens
   useEffect(() => {
     if (open) {
       setStep('day');
@@ -47,7 +47,14 @@ const MealUploadFlow = ({ open, onClose, periodStart }: MealUploadFlowProps) => 
     return DAY_LABELS.map((label, i) => {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-      return { label, date: d.toISOString().split('T')[0], dayObj: d };
+      const dateStr = d.toISOString().split('T')[0];
+      // Check if this date is within the allowed range
+      let enabled = true;
+      if (dateRange) {
+        if (dateStr < dateRange.start) enabled = false;
+        if (dateRange.end && dateStr > dateRange.end) enabled = false;
+      }
+      return { label, date: dateStr, dayObj: d, enabled };
     });
   };
 
@@ -59,7 +66,6 @@ const MealUploadFlow = ({ open, onClose, periodStart }: MealUploadFlowProps) => 
   const handleTypeSelect = (type: MealType) => {
     setSelectedType(type);
     setStep('photo');
-    // Trigger camera
     setTimeout(() => fileRef.current?.click(), 100);
   };
 
@@ -136,7 +142,13 @@ const MealUploadFlow = ({ open, onClose, periodStart }: MealUploadFlowProps) => 
         {step === 'day' && (
           <div className="grid grid-cols-1 gap-2">
             {getDayDates().map((day, i) => (
-              <Button key={i} variant="outline" className="justify-start h-12" onClick={() => handleDaySelect(i)}>
+              <Button
+                key={i}
+                variant="outline"
+                className="justify-start h-12"
+                onClick={() => handleDaySelect(i)}
+                disabled={!day.enabled}
+              >
                 <span className="font-medium w-12">{day.label}</span>
                 <span className="text-muted-foreground text-sm">{day.date}</span>
               </Button>
