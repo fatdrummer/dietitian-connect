@@ -1,6 +1,6 @@
 export type AppRole = 'dietitian' | 'client';
 
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type MealType = 'breakfast' | 'snack_1' | 'lunch' | 'snack_2' | 'dinner' | 'other';
 
 export interface Profile {
   id: string;
@@ -34,7 +34,8 @@ export interface WeeklyGoalItem {
 export interface WeeklyGoals {
   id: string;
   client_id: string;
-  week_start: string;
+  start_date: string;
+  end_date: string | null;
   goals: WeeklyGoalItem[];
   created_at: string;
 }
@@ -44,6 +45,7 @@ export interface Meal {
   client_id: string;
   photo_url: string | null;
   meal_type: MealType;
+  meal_date: string | null;
   notes: string | null;
   created_at: string;
 }
@@ -74,3 +76,14 @@ export interface ReflectionReply {
   content: string;
   created_at: string;
 }
+
+export const MEAL_TYPES: { value: MealType; label: string }[] = [
+  { value: 'breakfast', label: 'Breakfast' },
+  { value: 'snack_1', label: 'Snack 1' },
+  { value: 'lunch', label: 'Lunch' },
+  { value: 'snack_2', label: 'Snack 2' },
+  { value: 'dinner', label: 'Dinner' },
+  { value: 'other', label: 'Other' },
+];
+
+export const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

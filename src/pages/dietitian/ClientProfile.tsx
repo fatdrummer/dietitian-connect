@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import DietitianLayout from '@/components/DietitianLayout';
+import MealGrid from '@/components/MealGrid';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
+import { CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
 import type { WeeklyGoalItem } from '@/types';
+import { DAY_LABELS } from '@/types';
 
 type ProfileRow = Tables<'profiles'>;
 
@@ -24,12 +31,13 @@ const ClientProfile = () => {
   const [meals, setMeals] = useState<Tables<'meals'>[]>([]);
   const [reflections, setReflections] = useState<Tables<'reflections'>[]>([]);
   const [goals, setGoals] = useState<Tables<'weekly_goals'>[]>([]);
-  const [newGoalWeek, setNewGoalWeek] = useState('');
   const [newGoalTexts, setNewGoalTexts] = useState('');
+  const [newGoalEndDate, setNewGoalEndDate] = useState<Date | undefined>();
   const [commentText, setCommentText] = useState<Record<string, string>>({});
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [comments, setComments] = useState<Tables<'meal_comments'>[]>([]);
   const [replies, setReplies] = useState<Tables<'reflection_replies'>[]>([]);
+  const [mealPeriodOffset, setMealPeriodOffset] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -38,9 +46,9 @@ const ClientProfile = () => {
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase.from('tags').select('*'),
         supabase.from('client_tags').select('*').eq('client_id', id),
-        supabase.from('meals').select('*').eq('client_id', id).order('created_at', { ascending: false }),
+        supabase.from('meals').select('*').eq('client_id', id).order('meal_date', { ascending: true }),
         supabase.from('reflections').select('*').eq('client_id', id).order('created_at', { ascending: false }),
-        supabase.from('weekly_goals').select('*').eq('client_id', id).order('week_start', { ascending: false }),
+        supabase.from('weekly_goals').select('*').eq('client_id', id).order('start_date', { ascending: false }),
         supabase.from('meal_comments').select('*'),
         supabase.from('reflection_replies').select('*'),
       ]);
@@ -58,7 +66,9 @@ const ClientProfile = () => {
   }, [id]);
 
   const addGoals = async () => {
-    if (!id || !newGoalWeek || !newGoalTexts.trim()) return;
+    if (!id || !newGoalEndDate || !newGoalTexts.trim()) return;
+    const startDate = new Date().toISOString().split('T')[0];
+    const endDate = newGoalEndDate.toISOString().split('T')[0];
     const goalItems: WeeklyGoalItem[] = newGoalTexts.split('\n').filter(Boolean).map((text) => ({
       text: text.trim(),
       checked_days: [false, false, false, false, false, false, false],
@@ -66,7 +76,8 @@ const ClientProfile = () => {
 
     const { error } = await supabase.from('weekly_goals').insert({
       client_id: id,
-      week_start: newGoalWeek,
+      start_date: startDate,
+      end_date: endDate,
       goals: goalItems as any,
     });
 
@@ -74,9 +85,9 @@ const ClientProfile = () => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Goals assigned' });
-      setNewGoalWeek('');
       setNewGoalTexts('');
-      const { data } = await supabase.from('weekly_goals').select('*').eq('client_id', id).order('week_start', { ascending: false });
+      setNewGoalEndDate(undefined);
+      const { data } = await supabase.from('weekly_goals').select('*').eq('client_id', id).order('start_date', { ascending: false });
       setGoals(data ?? []);
     }
   };
@@ -104,7 +115,38 @@ const ClientProfile = () => {
   if (!profile) return <DietitianLayout><p>Loading…</p></DietitianLayout>;
 
   const fullName = `${profile.first_name} ${profile.last_name}`.trim();
-  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  // Meal grid period logic
+  const getActivePeriodStart = () => {
+    if (goals.length === 0) {
+      const today = new Date();
+      const day = today.getDay();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - ((day + 6) % 7) + mealPeriodOffset * 7);
+      return monday.toISOString().split('T')[0];
+    }
+    const latestGoal = goals[0];
+    const start = new Date(latestGoal.start_date + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const currentPeriodIndex = Math.floor(diffDays / 7);
+    const targetIndex = currentPeriodIndex + mealPeriodOffset;
+    const periodStart = new Date(start);
+    periodStart.setDate(start.getDate() + targetIndex * 7);
+    return periodStart.toISOString().split('T')[0];
+  };
+
+  const mealPeriodStart = getActivePeriodStart();
+  const mealPeriodEnd = (() => {
+    const ps = new Date(mealPeriodStart + 'T00:00:00');
+    ps.setDate(ps.getDate() + 6);
+    return ps.toISOString().split('T')[0];
+  })();
+
+  const periodMeals = meals.filter(
+    (m) => m.meal_date && m.meal_date >= mealPeriodStart && m.meal_date <= mealPeriodEnd
+  );
 
   return (
     <DietitianLayout>
@@ -136,63 +178,75 @@ const ClientProfile = () => {
 
         <TabsContent value="goals">
           <Card className="mb-4">
-            <CardHeader><CardTitle className="text-base">Assign Weekly Goals</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Assign Goals</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <Input type="date" value={newGoalWeek} onChange={(e) => setNewGoalWeek(e.target.value)} placeholder="Week start (Monday)" />
               <Textarea value={newGoalTexts} onChange={(e) => setNewGoalTexts(e.target.value)} placeholder="One goal per line" rows={4} />
-              <Button onClick={addGoals} disabled={!newGoalWeek || !newGoalTexts.trim()}>Assign Goals</Button>
+              <div>
+                <label className="text-sm font-medium mb-1 block">End Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !newGoalEndDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newGoalEndDate ? format(newGoalEndDate, 'PPP') : 'Pick an end date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={newGoalEndDate}
+                      onSelect={setNewGoalEndDate}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <Button onClick={addGoals} disabled={!newGoalEndDate || !newGoalTexts.trim()}>Assign Goals</Button>
             </CardContent>
           </Card>
           {goals.map((wg) => (
             <Card key={wg.id} className="mb-3">
               <CardContent className="pt-4">
-                <p className="font-medium mb-2">Week of {wg.week_start}</p>
-                {(wg.goals as unknown as WeeklyGoalItem[]).map((g, i) => (
-                  <div key={i} className="flex items-center gap-2 py-1">
-                    <span className="flex-1 text-sm">{g.text}</span>
-                    <div className="flex gap-1">
-                      {DAYS.map((d, di) => (
-                        <span key={d} className={`inline-flex h-6 w-6 items-center justify-center rounded text-xs ${g.checked_days[di] ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                          {d[0]}
-                        </span>
-                      ))}
+                <p className="font-medium mb-1">
+                  {wg.start_date} → {wg.end_date ?? 'ongoing'}
+                </p>
+                {(wg.goals as unknown as WeeklyGoalItem[]).map((g, i) => {
+                  const checkedCount = g.checked_days.filter(Boolean).length;
+                  return (
+                    <div key={i} className="flex items-center gap-2 py-1">
+                      <span className="flex-1 text-sm">{g.text}</span>
+                      <div className="flex gap-1">
+                        {DAY_LABELS.map((d, di) => (
+                          <span key={d} className={`inline-flex h-6 w-6 items-center justify-center rounded text-xs ${g.checked_days[di] ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                            {d[0]}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{checkedCount}/7</span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           ))}
         </TabsContent>
 
         <TabsContent value="meals">
-          {meals.length === 0 ? <p className="text-muted-foreground">No meals uploaded yet.</p> : meals.map((meal) => (
-            <Card key={meal.id} className="mb-3">
-              <CardContent className="pt-4">
-                <div className="flex items-start gap-4">
-                  {meal.photo_url && <img src={meal.photo_url} alt="Meal" className="h-20 w-20 rounded-md object-cover" />}
-                  <div className="flex-1">
-                    <Badge variant="secondary" className="capitalize">{meal.meal_type}</Badge>
-                    <p className="mt-1 text-sm">{meal.notes ?? 'No notes'}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{new Date(meal.created_at).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                <div className="mt-3 space-y-2 border-t pt-3">
-                  {comments.filter((c) => c.meal_id === meal.id).map((c) => (
-                    <p key={c.id} className="text-sm bg-muted rounded p-2">{c.content}</p>
-                  ))}
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add comment…"
-                      value={commentText[meal.id] ?? ''}
-                      onChange={(e) => setCommentText((prev) => ({ ...prev, [meal.id]: e.target.value }))}
-                      onKeyDown={(e) => e.key === 'Enter' && addComment(meal.id)}
-                    />
-                    <Button size="sm" onClick={() => addComment(meal.id)}>Send</Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" size="icon" onClick={() => setMealPeriodOffset((p) => p - 1)}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-sm font-medium">{mealPeriodStart} — {mealPeriodEnd}</span>
+            <Button variant="ghost" size="icon" onClick={() => setMealPeriodOffset((p) => p + 1)} disabled={mealPeriodOffset >= 0}>
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="pt-4">
+              <MealGrid meals={periodMeals} comments={comments} periodStart={mealPeriodStart} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="reflections">
