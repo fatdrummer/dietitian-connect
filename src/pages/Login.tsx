@@ -6,8 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { Stethoscope, User } from 'lucide-react';
+
+type LoginMode = 'choose' | 'dietitian' | 'client';
 
 const Login = () => {
+  const [mode, setMode] = useState<LoginMode>('choose');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,12 +45,51 @@ const Login = () => {
     }
   };
 
+  if (mode === 'choose') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight">NutriTrack</CardTitle>
+            <CardDescription>Choose how to sign in</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full h-20 flex items-center gap-4 text-left justify-start px-6"
+              onClick={() => setMode('dietitian')}
+            >
+              <Stethoscope className="h-8 w-8 text-primary shrink-0" />
+              <div>
+                <p className="font-semibold">I'm a Dietitian</p>
+                <p className="text-xs text-muted-foreground">Manage clients, review meals & reflections</p>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-20 flex items-center gap-4 text-left justify-start px-6"
+              onClick={() => setMode('client')}
+            >
+              <User className="h-8 w-8 text-primary shrink-0" />
+              <div>
+                <p className="font-semibold">I'm a Client</p>
+                <p className="text-xs text-muted-foreground">Track goals, upload meals & reflections</p>
+              </div>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold tracking-tight">NutriTrack</CardTitle>
-          <CardDescription>Sign in to your account</CardDescription>
+          <CardDescription>
+            Sign in as {mode === 'dietitian' ? 'Dietitian' : 'Client'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -62,12 +105,22 @@ const Login = () => {
               {loading ? 'Signing in…' : 'Sign In'}
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Dietitian?{' '}
-            <Link to="/signup" className="text-primary underline-offset-4 hover:underline">
-              Create an account
-            </Link>
-          </p>
+          <div className="mt-4 text-center space-y-2">
+            <button
+              onClick={() => { setMode('choose'); setEmail(''); setPassword(''); }}
+              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+            >
+              ← Back to role selection
+            </button>
+            {mode === 'dietitian' && (
+              <p className="text-sm text-muted-foreground">
+                Don't have an account?{' '}
+                <Link to="/signup" className="text-primary underline-offset-4 hover:underline">
+                  Sign up
+                </Link>
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
