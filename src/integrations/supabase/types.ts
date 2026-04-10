@@ -81,6 +81,7 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          meal_date: string | null
           meal_type: Database["public"]["Enums"]["meal_type"]
           notes: string | null
           photo_url: string | null
@@ -89,6 +90,7 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          meal_date?: string | null
           meal_type: Database["public"]["Enums"]["meal_type"]
           notes?: string | null
           photo_url?: string | null
@@ -97,6 +99,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          meal_date?: string | null
           meal_type?: Database["public"]["Enums"]["meal_type"]
           notes?: string | null
           photo_url?: string | null
@@ -281,26 +284,29 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          end_date: string | null
           goals: Json
           id: string
+          start_date: string
           updated_at: string
-          week_start: string
         }
         Insert: {
           client_id: string
           created_at?: string
+          end_date?: string | null
           goals?: Json
           id?: string
+          start_date: string
           updated_at?: string
-          week_start: string
         }
         Update: {
           client_id?: string
           created_at?: string
+          end_date?: string | null
           goals?: Json
           id?: string
+          start_date?: string
           updated_at?: string
-          week_start?: string
         }
         Relationships: [
           {
@@ -327,7 +333,14 @@ export type Database = {
     }
     Enums: {
       app_role: "dietitian" | "client"
-      meal_type: "breakfast" | "lunch" | "dinner" | "snack"
+      meal_type:
+        | "breakfast"
+        | "lunch"
+        | "dinner"
+        | "snack"
+        | "snack_1"
+        | "snack_2"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -456,7 +469,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["dietitian", "client"],
-      meal_type: ["breakfast", "lunch", "dinner", "snack"],
+      meal_type: [
+        "breakfast",
+        "lunch",
+        "dinner",
+        "snack",
+        "snack_1",
+        "snack_2",
+        "other",
+      ],
     },
   },
 } as const
