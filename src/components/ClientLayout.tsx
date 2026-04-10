@@ -1,14 +1,13 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LogOut, Home, Target, Camera, MessageSquare } from 'lucide-react';
+import { LogOut, Target, Camera, MessageSquare } from 'lucide-react';
 
 const ClientLayout = ({ children }: { children: React.ReactNode }) => {
   const { signOut, profile } = useAuth();
   const location = useLocation();
 
   const navItems = [
-    { to: '/client', icon: Home, label: 'Home' },
     { to: '/client/goals', icon: Target, label: 'Goals' },
     { to: '/client/meals', icon: Camera, label: 'Meals' },
     { to: '/client/reflections', icon: MessageSquare, label: 'Reflect' },
