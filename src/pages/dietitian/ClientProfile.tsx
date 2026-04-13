@@ -273,31 +273,66 @@ const ClientProfile = () => {
               <Button onClick={addGoals} disabled={!newGoalEndDate || !newGoalTexts.trim()}>Assign Goals</Button>
             </CardContent>
           </Card>
-          {goals.map((wg) => (
-            <Card key={wg.id} className="mb-3">
-              <CardContent className="pt-4">
-                <p className="font-medium mb-1">
-                  {wg.start_date} → {wg.end_date ?? 'ongoing'}
-                </p>
-                {(wg.goals as unknown as WeeklyGoalItem[]).map((g, i) => {
-                  const checkedCount = g.checked_days.filter(Boolean).length;
-                  return (
-                    <div key={i} className="flex items-center gap-2 py-1">
-                      <span className="flex-1 text-sm">{g.text}</span>
-                      <div className="flex gap-1">
-                        {DAY_LABELS.map((d, di) => (
-                          <span key={d} className={`inline-flex h-6 w-6 items-center justify-center rounded text-xs ${g.checked_days[di] ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-                            {d[0]}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground">{checkedCount}/7</span>
+          {goals.map((wg) => {
+            const isEditing = editingGoalSet === wg.id;
+            const items = wg.goals as unknown as WeeklyGoalItem[];
+            return (
+              <Card key={wg.id} className="mb-3">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-medium">{wg.start_date} → {wg.end_date ?? 'ongoing'}</p>
+                    <div className="flex gap-1">
+                      {isEditing ? (
+                        <>
+                          <Button variant="ghost" size="icon" onClick={() => saveEditGoalSet(wg)}><Check className="h-4 w-4 text-green-600" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setEditingGoalSet(null)}><X className="h-4 w-4" /></Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="ghost" size="icon" onClick={() => startEditGoalSet(wg)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteGoalSet(wg.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </>
+                      )}
                     </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          ))}
+                  </div>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      {editGoalTexts.map((text, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input
+                            value={text}
+                            onChange={(e) => {
+                              const updated = [...editGoalTexts];
+                              updated[i] = e.target.value;
+                              setEditGoalTexts(updated);
+                            }}
+                          />
+                          <Button variant="ghost" size="icon" onClick={() => setEditGoalTexts(editGoalTexts.filter((_, j) => j !== i))}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" onClick={() => setEditGoalTexts([...editGoalTexts, ''])}>+ Add Goal</Button>
+                    </div>
+                  ) : (
+                    items.map((g, i) => {
+                      const checkedCount = g.checked_days.filter(Boolean).length;
+                      const total = g.checked_days.length;
+                      return (
+                        <div key={i} className="flex items-center gap-2 py-1">
+                          <span className="flex-1 text-sm">{g.text}</span>
+                          <span className="text-xs text-muted-foreground">{checkedCount}/{total}</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteGoalItem(wg, i)}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
 
         <TabsContent value="meals">
