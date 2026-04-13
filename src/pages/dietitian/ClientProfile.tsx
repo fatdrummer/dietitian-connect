@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarIcon, ChevronLeft, ChevronRight, Trash2, Pencil, X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
 import type { WeeklyGoalItem } from '@/types';
@@ -38,6 +38,8 @@ const ClientProfile = () => {
   const [comments, setComments] = useState<Tables<'meal_comments'>[]>([]);
   const [replies, setReplies] = useState<Tables<'reflection_replies'>[]>([]);
   const [mealPeriodOffset, setMealPeriodOffset] = useState(0);
+  const [editingGoalSet, setEditingGoalSet] = useState<string | null>(null);
+  const [editGoalTexts, setEditGoalTexts] = useState<string[]>([]);
 
   useEffect(() => {
     if (!id) return;
