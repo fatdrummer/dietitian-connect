@@ -97,7 +97,70 @@ const ClientProfile = () => {
     }
   };
 
-  const addComment = async (mealId: string) => {
+  const refreshGoals = async () => {
+    if (!id) return;
+    const { data } = await supabase.from('weekly_goals').select('*').eq('client_id', id).order('start_date', { ascending: false });
+    setGoals(data ?? []);
+  };
+
+  const deleteGoalSet = async (goalId: string) => {
+    const { error } = await supabase.from('weekly_goals').delete().eq('id', goalId);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Goals deleted' });
+      await refreshGoals();
+    }
+  };
+
+  const startEditGoalSet = (wg: Tables<'weekly_goals'>) => {
+    const items = wg.goals as unknown as WeeklyGoalItem[];
+    setEditingGoalSet(wg.id);
+    setEditGoalTexts(items.map((g) => g.text));
+  };
+
+  const saveEditGoalSet = async (wg: Tables<'weekly_goals'>) => {
+    const oldItems = wg.goals as unknown as WeeklyGoalItem[];
+    const newItems = editGoalTexts
+      .filter((t) => t.trim())
+      .map((text, i) => ({
+        text: text.trim(),
+        checked_days: oldItems[i]?.checked_days ?? Array(oldItems[0]?.checked_days.length ?? 7).fill(false),
+      }));
+
+    const { error } = await supabase
+      .from('weekly_goals')
+      .update({ goals: newItems as any })
+      .eq('id', wg.id);
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Goals updated' });
+      setEditingGoalSet(null);
+      await refreshGoals();
+    }
+  };
+
+  const deleteGoalItem = async (wg: Tables<'weekly_goals'>, itemIndex: number) => {
+    const items = (wg.goals as unknown as WeeklyGoalItem[]).filter((_, i) => i !== itemIndex);
+    if (items.length === 0) {
+      await deleteGoalSet(wg.id);
+      return;
+    }
+    const { error } = await supabase
+      .from('weekly_goals')
+      .update({ goals: items as any })
+      .eq('id', wg.id);
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      await refreshGoals();
+    }
+  };
+
+
     if (!user || !commentText[mealId]?.trim()) return;
     await supabase.from('meal_comments').insert({
       meal_id: mealId, author_id: user.id, content: commentText[mealId],
