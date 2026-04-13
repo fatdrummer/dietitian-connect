@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarIcon, ChevronLeft, ChevronRight, Trash2, Pencil, X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
 import type { WeeklyGoalItem } from '@/types';
@@ -38,6 +38,8 @@ const ClientProfile = () => {
   const [comments, setComments] = useState<Tables<'meal_comments'>[]>([]);
   const [replies, setReplies] = useState<Tables<'reflection_replies'>[]>([]);
   const [mealPeriodOffset, setMealPeriodOffset] = useState(0);
+  const [editingGoalSet, setEditingGoalSet] = useState<string | null>(null);
+  const [editGoalTexts, setEditGoalTexts] = useState<string[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -95,7 +97,70 @@ const ClientProfile = () => {
     }
   };
 
-  const addComment = async (mealId: string) => {
+  const refreshGoals = async () => {
+    if (!id) return;
+    const { data } = await supabase.from('weekly_goals').select('*').eq('client_id', id).order('start_date', { ascending: false });
+    setGoals(data ?? []);
+  };
+
+  const deleteGoalSet = async (goalId: string) => {
+    const { error } = await supabase.from('weekly_goals').delete().eq('id', goalId);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Goals deleted' });
+      await refreshGoals();
+    }
+  };
+
+  const startEditGoalSet = (wg: Tables<'weekly_goals'>) => {
+    const items = wg.goals as unknown as WeeklyGoalItem[];
+    setEditingGoalSet(wg.id);
+    setEditGoalTexts(items.map((g) => g.text));
+  };
+
+  const saveEditGoalSet = async (wg: Tables<'weekly_goals'>) => {
+    const oldItems = wg.goals as unknown as WeeklyGoalItem[];
+    const newItems = editGoalTexts
+      .filter((t) => t.trim())
+      .map((text, i) => ({
+        text: text.trim(),
+        checked_days: oldItems[i]?.checked_days ?? Array(oldItems[0]?.checked_days.length ?? 7).fill(false),
+      }));
+
+    const { error } = await supabase
+      .from('weekly_goals')
+      .update({ goals: newItems as any })
+      .eq('id', wg.id);
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Goals updated' });
+      setEditingGoalSet(null);
+      await refreshGoals();
+    }
+  };
+
+  const deleteGoalItem = async (wg: Tables<'weekly_goals'>, itemIndex: number) => {
+    const items = (wg.goals as unknown as WeeklyGoalItem[]).filter((_, i) => i !== itemIndex);
+    if (items.length === 0) {
+      await deleteGoalSet(wg.id);
+      return;
+    }
+    const { error } = await supabase
+      .from('weekly_goals')
+      .update({ goals: items as any })
+      .eq('id', wg.id);
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      await refreshGoals();
+    }
+  };
+
+
     if (!user || !commentText[mealId]?.trim()) return;
     await supabase.from('meal_comments').insert({
       meal_id: mealId, author_id: user.id, content: commentText[mealId],
@@ -208,31 +273,66 @@ const ClientProfile = () => {
               <Button onClick={addGoals} disabled={!newGoalEndDate || !newGoalTexts.trim()}>Assign Goals</Button>
             </CardContent>
           </Card>
-          {goals.map((wg) => (
-            <Card key={wg.id} className="mb-3">
-              <CardContent className="pt-4">
-                <p className="font-medium mb-1">
-                  {wg.start_date} → {wg.end_date ?? 'ongoing'}
-                </p>
-                {(wg.goals as unknown as WeeklyGoalItem[]).map((g, i) => {
-                  const checkedCount = g.checked_days.filter(Boolean).length;
-                  return (
-                    <div key={i} className="flex items-center gap-2 py-1">
-                      <span className="flex-1 text-sm">{g.text}</span>
-                      <div className="flex gap-1">
-                        {DAY_LABELS.map((d, di) => (
-                          <span key={d} className={`inline-flex h-6 w-6 items-center justify-center rounded text-xs ${g.checked_days[di] ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-                            {d[0]}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground">{checkedCount}/7</span>
+          {goals.map((wg) => {
+            const isEditing = editingGoalSet === wg.id;
+            const items = wg.goals as unknown as WeeklyGoalItem[];
+            return (
+              <Card key={wg.id} className="mb-3">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-medium">{wg.start_date} → {wg.end_date ?? 'ongoing'}</p>
+                    <div className="flex gap-1">
+                      {isEditing ? (
+                        <>
+                          <Button variant="ghost" size="icon" onClick={() => saveEditGoalSet(wg)}><Check className="h-4 w-4 text-green-600" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setEditingGoalSet(null)}><X className="h-4 w-4" /></Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="ghost" size="icon" onClick={() => startEditGoalSet(wg)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteGoalSet(wg.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </>
+                      )}
                     </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          ))}
+                  </div>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      {editGoalTexts.map((text, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input
+                            value={text}
+                            onChange={(e) => {
+                              const updated = [...editGoalTexts];
+                              updated[i] = e.target.value;
+                              setEditGoalTexts(updated);
+                            }}
+                          />
+                          <Button variant="ghost" size="icon" onClick={() => setEditGoalTexts(editGoalTexts.filter((_, j) => j !== i))}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" onClick={() => setEditGoalTexts([...editGoalTexts, ''])}>+ Add Goal</Button>
+                    </div>
+                  ) : (
+                    items.map((g, i) => {
+                      const checkedCount = g.checked_days.filter(Boolean).length;
+                      const total = g.checked_days.length;
+                      return (
+                        <div key={i} className="flex items-center gap-2 py-1">
+                          <span className="flex-1 text-sm">{g.text}</span>
+                          <span className="text-xs text-muted-foreground">{checkedCount}/{total}</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteGoalItem(wg, i)}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
 
         <TabsContent value="meals">
