@@ -1,77 +1,51 @@
 
 
-## Plan: Rework Goals, Meals, and Login
+## Plan: Goal Tracking Full Duration + Meal History + Reflection Upload Flow
 
-This is a significant rework touching the database schema, several pages, and the login flow. Here's what changes:
+### Current Issues
+1. **Goals only track 7 days** — `checked_days` is a fixed 7-element array. Need to expand to cover the full start_date-to-end_date duration, split into 7-day blocks with per-block and overall % counters.
+2. **Client can't browse past meals** — The Meals page exists but needs clearer navigation.
+3. **Reflections aren't accessible from the FAB** — User wants reflection submission to work similarly to meal photo uploads (quick action from goals page).
 
-### 1. Database Changes
+### Changes
 
-**Update `meal_type` enum** — Add `snack_1`, `snack_2`, `other` values. Remove `snack`.
+#### 1. Expand Goal Tracking to Full Duration
 
-**Add `meal_date` column to `meals`** — A `date` field so clients pick which day the meal belongs to (not just `created_at`).
+**Data model change**: The `checked_days` array in each `WeeklyGoalItem` currently has 7 booleans. It needs to grow to match the total number of days from `start_date` to `end_date`. When the dietitian assigns goals, `checked_days` should be initialized with `N` booleans (where N = days between start and end date).
 
-**Rework `weekly_goals` table** — Replace `week_start` with two fields:
-- `start_date` (date) — when the goal period begins
-- `end_date` (date) — dietitian-chosen end date
-- Goals are auto-split into 7-day periods on the frontend for display/tracking
+**Goals page rework** (`src/pages/client/Goals.tsx`):
+- Calculate total days from `start_date` to `end_date`
+- Split into 7-day blocks (last block may be shorter)
+- Show each block as a collapsible or stacked section with its own day checkboxes and `X/7 (Y%)` counter
+- Highlight the current block/week
+- Add an **overall progress bar** at the top showing total checked / total days across the entire duration with percentage
+- Keep the >80% "Goal Accomplished!" banner using the overall percentage
 
-### 2. Login Page — Two Distinct Paths
+**Dietitian goal assignment** (`src/pages/dietitian/ClientProfile.tsx`):
+- When creating goals, compute total days and initialize `checked_days` with that many `false` values instead of always 7
 
-Replace the single login form with two clearly separated options:
-- "I'm a Dietitian" button → shows dietitian login form (with signup link)
-- "I'm a Client" button → shows client login form (no signup link, since clients are created by dietitians)
+#### 2. Client Meal History
 
-Both use the same `signInWithPassword` under the hood; the role check after login still determines routing.
+The Meals page already exists and works. Ensure it's properly linked in the nav (it is). No major changes needed — it already has week-by-week navigation with the chevron arrows.
 
-### 3. Client Home = Goal Tracker
+#### 3. Reflection Quick-Add from Goals Page
 
-When a client logs in, they land directly on the goal tracker (merge current Dashboard into Goals page):
-- Shows active goals with their current 7-day period
-- Each goal row: text + 7 day checkboxes (Mon–Sun labels based on the period start day)
-- Checked boxes turn **green**
-- Below each goal: **"Total for week: X/7 (Y%)"** counter showing checked days and percentage
-- Bottom-right: floating action button (FAB) with camera icon → opens meal upload flow
+Add a second FAB (or expand the existing one) on the Goals page for reflections — a small "MessageSquare" button next to the Camera FAB. Tapping it opens a dialog with the reflection form (hunger/cravings/satisfaction sliders + notes), same as the current Reflections page form but in a dialog. Past reflections remain viewable on the dedicated Reflections page.
 
-### 4. Meal Upload Flow (Step-by-step)
+### Files to Modify
 
-Triggered by the FAB on the goals page:
-1. **Step 1**: Pick the day (Monday through Sunday of current period)
-2. **Step 2**: Pick meal type (Breakfast, Snack 1, Snack 2, Lunch, Dinner, Other)
-3. **Step 3**: Camera opens automatically (`capture="environment"`)
-4. **Step 4**: After photo taken, show preview + text area for comments → Submit
-
-### 5. Meal Grid View (Both Dietitian and Client)
-
-Replace the current list-based meal view with a **grid/table**:
-- **Rows** = Days (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
-- **Columns** = Meal types (Breakfast, Snack 1, Lunch, Snack 2, Dinner, Other)
-- Each cell shows a thumbnail of the meal photo (if uploaded), clickable to expand with comments
-- This view is used on both the client meals page and the dietitian's client profile meals tab
-
-### 6. Dietitian Goal Assignment
-
-Update the ClientProfile goals tab:
-- Instead of picking a week, the dietitian enters goal texts + picks an **end date** (start date defaults to today)
-- The system auto-creates the `weekly_goals` row with `start_date` and `end_date`
-- Display splits the period into 7-day chunks for tracking
+| File | Change |
+|------|--------|
+| `src/types/index.ts` | No structural change needed — `checked_days: boolean[]` already supports variable length |
+| `src/pages/client/Goals.tsx` | Split goals into 7-day blocks with per-block and overall % counters; add reflection FAB |
+| `src/pages/dietitian/ClientProfile.tsx` | Initialize `checked_days` with correct length based on date range |
+| `src/components/ReflectionDialog.tsx` | New: extracted reflection form as a dialog component |
 
 ### Technical Details
 
-**Migration SQL:**
-- `ALTER TYPE meal_type ADD VALUE 'snack_1'; ALTER TYPE meal_type ADD VALUE 'snack_2'; ALTER TYPE meal_type ADD VALUE 'other';`
-- Drop old `snack` value (or keep for backward compat — safer to keep and just not show it in UI)
-- `ALTER TABLE meals ADD COLUMN meal_date date;`
-- `ALTER TABLE weekly_goals ADD COLUMN end_date date;` then rename `week_start` → `start_date`
-
-**Files to create/modify:**
-- `src/pages/Login.tsx` — Two-path login UI
-- `src/pages/client/Goals.tsx` — Becomes the main client landing page with goal tracker + FAB
-- `src/pages/client/Meals.tsx` — Grid view replacing list
-- `src/components/MealGrid.tsx` — Shared grid component (days × meal types)
-- `src/components/MealUploadFlow.tsx` — Multi-step upload dialog
-- `src/pages/dietitian/ClientProfile.tsx` — Updated goals tab with end-date picker
-- `src/pages/client/Dashboard.tsx` — Redirect to /client/goals or merge content
-- `src/components/ClientLayout.tsx` — Remove separate Goals nav, add FAB
-- `src/App.tsx` — Update routing so `/client` renders goals page
-- `src/types/index.ts` — Update types for new schema
+- Block calculation: `totalDays = daysBetween(start_date, end_date)`, `numBlocks = ceil(totalDays / 7)`. Block `i` covers days `[i*7, min((i+1)*7, totalDays))`.
+- Day labels within each block are derived from actual dates (e.g., "Mon 14/4", "Tue 15/4").
+- `toggleDay(goalIndex, absoluteDayIndex)` updates the correct position in the full `checked_days` array.
+- Overall % = sum of all checked across all goals / (goals.length * totalDays) * 100.
+- Per-block % = checked in that block's range / block size * 100.
 
