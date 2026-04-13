@@ -69,9 +69,12 @@ const ClientProfile = () => {
     if (!id || !newGoalEndDate || !newGoalTexts.trim()) return;
     const startDate = new Date().toISOString().split('T')[0];
     const endDate = newGoalEndDate.toISOString().split('T')[0];
+    const startD = new Date(startDate + 'T00:00:00');
+    const endD = new Date(endDate + 'T00:00:00');
+    const totalDays = Math.max(1, Math.ceil((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)));
     const goalItems: WeeklyGoalItem[] = newGoalTexts.split('\n').filter(Boolean).map((text) => ({
       text: text.trim(),
-      checked_days: [false, false, false, false, false, false, false],
+      checked_days: Array(totalDays).fill(false),
     }));
 
     const { error } = await supabase.from('weekly_goals').insert({
