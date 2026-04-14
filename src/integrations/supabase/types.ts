@@ -122,6 +122,7 @@ export type Database = {
           id: string
           last_name: string
           must_change_password: boolean
+          next_appointment: string | null
           notes: string | null
           sex: string | null
           soma_id: string | null
@@ -134,6 +135,7 @@ export type Database = {
           id: string
           last_name?: string
           must_change_password?: boolean
+          next_appointment?: string | null
           notes?: string | null
           sex?: string | null
           soma_id?: string | null
@@ -146,6 +148,7 @@ export type Database = {
           id?: string
           last_name?: string
           must_change_password?: boolean
+          next_appointment?: string | null
           notes?: string | null
           sex?: string | null
           soma_id?: string | null
