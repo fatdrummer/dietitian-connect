@@ -18,9 +18,32 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Trash2, Pencil, X, Check } fro
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/integrations/supabase/types';
 import type { WeeklyGoalItem } from '@/types';
-import { DAY_LABELS } from '@/types';
 
 type ProfileRow = Tables<'profiles'>;
+
+const DatePicker = ({ value, onChange, label, disableBefore }: { value: Date | undefined; onChange: (d: Date | undefined) => void; label: string; disableBefore?: Date }) => (
+  <div>
+    <label className="text-sm font-medium mb-1 block">{label}</label>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !value && "text-muted-foreground")}>
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {value ? format(value, 'PPP') : `Pick ${label.toLowerCase()}`}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={value}
+          onSelect={onChange}
+          disabled={disableBefore ? (date) => date < disableBefore : undefined}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  </div>
+);
 
 const ClientProfile = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +55,7 @@ const ClientProfile = () => {
   const [reflections, setReflections] = useState<Tables<'reflections'>[]>([]);
   const [goals, setGoals] = useState<Tables<'weekly_goals'>[]>([]);
   const [newGoalTexts, setNewGoalTexts] = useState('');
+  const [newGoalStartDate, setNewGoalStartDate] = useState<Date | undefined>(new Date());
   const [newGoalEndDate, setNewGoalEndDate] = useState<Date | undefined>();
   const [commentText, setCommentText] = useState<Record<string, string>>({});
   const [replyText, setReplyText] = useState<Record<string, string>>({});
@@ -40,6 +64,9 @@ const ClientProfile = () => {
   const [mealPeriodOffset, setMealPeriodOffset] = useState(0);
   const [editingGoalSet, setEditingGoalSet] = useState<string | null>(null);
   const [editGoalTexts, setEditGoalTexts] = useState<string[]>([]);
+  const [editStartDate, setEditStartDate] = useState<Date | undefined>();
+  const [editEndDate, setEditEndDate] = useState<Date | undefined>();
+  const [nextAppointment, setNextAppointment] = useState<Date | undefined>();
 
   useEffect(() => {
     if (!id) return;
@@ -55,7 +82,13 @@ const ClientProfile = () => {
         supabase.from('reflection_replies').select('*'),
       ]);
 
-      setProfile(profileRes.data);
+      const p = profileRes.data;
+      setProfile(p);
+      if (p?.next_appointment) {
+        const apptDate = new Date(p.next_appointment + 'T00:00:00');
+        setNextAppointment(apptDate);
+        if (!newGoalEndDate) setNewGoalEndDate(apptDate);
+      }
       const tagIds = (clientTagsRes.data ?? []).map((ct) => ct.tag_id);
       setTags((tagsRes.data ?? []).filter((t) => tagIds.includes(t.id)));
       setMeals(mealsRes.data ?? []);
@@ -67,13 +100,23 @@ const ClientProfile = () => {
     fetchAll();
   }, [id]);
 
+  const saveNextAppointment = async () => {
+    if (!id) return;
+    const dateStr = nextAppointment ? nextAppointment.toISOString().split('T')[0] : null;
+    const { error } = await supabase.from('profiles').update({ next_appointment: dateStr } as any).eq('id', id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Next appointment saved' });
+      if (nextAppointment && !newGoalEndDate) setNewGoalEndDate(nextAppointment);
+    }
+  };
+
   const addGoals = async () => {
-    if (!id || !newGoalEndDate || !newGoalTexts.trim()) return;
-    const startDate = new Date().toISOString().split('T')[0];
+    if (!id || !newGoalEndDate || !newGoalStartDate || !newGoalTexts.trim()) return;
+    const startDate = newGoalStartDate.toISOString().split('T')[0];
     const endDate = newGoalEndDate.toISOString().split('T')[0];
-    const startD = new Date(startDate + 'T00:00:00');
-    const endD = new Date(endDate + 'T00:00:00');
-    const totalDays = Math.max(1, Math.ceil((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)));
+    const totalDays = Math.max(1, Math.ceil((newGoalEndDate.getTime() - newGoalStartDate.getTime()) / (1000 * 60 * 60 * 24)));
     const goalItems: WeeklyGoalItem[] = newGoalTexts.split('\n').filter(Boolean).map((text) => ({
       text: text.trim(),
       checked_days: Array(totalDays).fill(false),
@@ -91,9 +134,9 @@ const ClientProfile = () => {
     } else {
       toast({ title: 'Goals assigned' });
       setNewGoalTexts('');
-      setNewGoalEndDate(undefined);
-      const { data } = await supabase.from('weekly_goals').select('*').eq('client_id', id).order('start_date', { ascending: false });
-      setGoals(data ?? []);
+      setNewGoalStartDate(new Date());
+      setNewGoalEndDate(nextAppointment);
+      await refreshGoals();
     }
   };
 
@@ -117,20 +160,28 @@ const ClientProfile = () => {
     const items = wg.goals as unknown as WeeklyGoalItem[];
     setEditingGoalSet(wg.id);
     setEditGoalTexts(items.map((g) => g.text));
+    setEditStartDate(new Date(wg.start_date + 'T00:00:00'));
+    setEditEndDate(wg.end_date ? new Date(wg.end_date + 'T00:00:00') : undefined);
   };
 
   const saveEditGoalSet = async (wg: Tables<'weekly_goals'>) => {
+    if (!editStartDate || !editEndDate) return;
     const oldItems = wg.goals as unknown as WeeklyGoalItem[];
+    const newStartDate = editStartDate.toISOString().split('T')[0];
+    const newEndDate = editEndDate.toISOString().split('T')[0];
+    const newTotalDays = Math.max(1, Math.ceil((editEndDate.getTime() - editStartDate.getTime()) / (1000 * 60 * 60 * 24)));
+
     const newItems = editGoalTexts
       .filter((t) => t.trim())
-      .map((text, i) => ({
-        text: text.trim(),
-        checked_days: oldItems[i]?.checked_days ?? Array(oldItems[0]?.checked_days.length ?? 7).fill(false),
-      }));
+      .map((text, i) => {
+        const old = oldItems[i]?.checked_days ?? [];
+        const checked_days = Array(newTotalDays).fill(false).map((_, d) => d < old.length ? old[d] : false);
+        return { text: text.trim(), checked_days };
+      });
 
     const { error } = await supabase
       .from('weekly_goals')
-      .update({ goals: newItems as any })
+      .update({ goals: newItems as any, start_date: newStartDate, end_date: newEndDate })
       .eq('id', wg.id);
 
     if (error) {
@@ -159,6 +210,7 @@ const ClientProfile = () => {
       await refreshGoals();
     }
   };
+
   const addComment = async (mealId: string) => {
     if (!user || !commentText[mealId]?.trim()) return;
     await supabase.from('meal_comments').insert({
@@ -239,6 +291,12 @@ const ClientProfile = () => {
               <div><span className="text-sm text-muted-foreground">Sex:</span> <span>{profile.sex ?? '—'}</span></div>
               <div><span className="text-sm text-muted-foreground">SOMA ID:</span> <span>{profile.soma_id ?? '—'}</span></div>
               <div className="sm:col-span-2"><span className="text-sm text-muted-foreground">Notes:</span> <span>{profile.notes ?? '—'}</span></div>
+              <div className="sm:col-span-2 flex items-end gap-3">
+                <div className="flex-1">
+                  <DatePicker value={nextAppointment} onChange={setNextAppointment} label="Next Appointment" />
+                </div>
+                <Button onClick={saveNextAppointment} size="sm">Save</Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -248,28 +306,11 @@ const ClientProfile = () => {
             <CardHeader><CardTitle className="text-base">Assign Goals</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <Textarea value={newGoalTexts} onChange={(e) => setNewGoalTexts(e.target.value)} placeholder="One goal per line" rows={4} />
-              <div>
-                <label className="text-sm font-medium mb-1 block">End Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !newGoalEndDate && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newGoalEndDate ? format(newGoalEndDate, 'PPP') : 'Pick an end date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={newGoalEndDate}
-                      onSelect={setNewGoalEndDate}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <DatePicker value={newGoalStartDate} onChange={setNewGoalStartDate} label="Start Date" />
+                <DatePicker value={newGoalEndDate} onChange={setNewGoalEndDate} label="End Date" disableBefore={newGoalStartDate} />
               </div>
-              <Button onClick={addGoals} disabled={!newGoalEndDate || !newGoalTexts.trim()}>Assign Goals</Button>
+              <Button onClick={addGoals} disabled={!newGoalEndDate || !newGoalStartDate || !newGoalTexts.trim()}>Assign Goals</Button>
             </CardContent>
           </Card>
           {goals.map((wg) => {
@@ -279,7 +320,14 @@ const ClientProfile = () => {
               <Card key={wg.id} className="mb-3">
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium">{wg.start_date} → {wg.end_date ?? 'ongoing'}</p>
+                    {isEditing ? (
+                      <div className="grid gap-2 sm:grid-cols-2 flex-1 mr-2">
+                        <DatePicker value={editStartDate} onChange={setEditStartDate} label="Start" />
+                        <DatePicker value={editEndDate} onChange={setEditEndDate} label="End" disableBefore={editStartDate} />
+                      </div>
+                    ) : (
+                      <p className="font-medium">{wg.start_date} → {wg.end_date ?? 'ongoing'}</p>
+                    )}
                     <div className="flex gap-1">
                       {isEditing ? (
                         <>
