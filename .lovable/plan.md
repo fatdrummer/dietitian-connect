@@ -1,33 +1,39 @@
 
 
-## Plan: Fix Build Error + Role-Gated Login + Goal Edit/Delete + Image Compression
+## Plan: Fix Duplicate Start Date + Editable Dates + Next Appointment
 
-### 1. Fix Build Error (ClientProfile.tsx)
+### Problem
+There's a `UNIQUE (client_id, start_date)` constraint on `weekly_goals` preventing multiple goal sets with the same start date.
 
-Line 163 is missing `const addComment = async (mealId: string) => {` — the function declaration was lost during a previous edit. Re-add it.
+### Changes
 
-### 2. Role-Gated Login
+#### 1. Drop the Unique Constraint (DB Migration)
+```sql
+ALTER TABLE public.weekly_goals DROP CONSTRAINT weekly_goals_client_id_week_start_key;
+```
 
-After successful `signInWithPassword`, check the user's role from `user_roles` table. If the user selected "Dietitian" but their role is `client` (or vice versa), sign them out and show an error toast: "This account is not registered as a dietitian/client."
+#### 2. Add `next_appointment` Column to Profiles
+```sql
+ALTER TABLE public.profiles ADD COLUMN next_appointment date;
+```
+This lets the dietitian set a "Next Appointment Date" per client. The goal end date defaults to this but can be overridden.
 
-**File**: `src/pages/Login.tsx` — add role validation in `handleLogin` between auth and navigation.
+#### 3. Dietitian UI Updates (`src/pages/dietitian/ClientProfile.tsx`)
 
-### 3. Goal Edit/Delete (already partially done)
+**Overview tab**: Add a "Next Appointment" field with a date picker. Saving updates `profiles.next_appointment`.
 
-The edit/delete functions (`deleteGoalSet`, `deleteGoalItem`, `saveEditGoalSet`) already exist in `ClientProfile.tsx`. Just need to verify the UI renders the edit/delete buttons properly — this was part of the previous approved work that introduced the build error. The fix in step 1 should restore this.
+**Goals tab — Assign form**: 
+- Add a **start date** picker (defaults to today but modifiable)
+- End date defaults to `profile.next_appointment` if set, but remains editable
 
-### 4. Client-Side Image Compression
+**Goals tab — Existing goals**:
+- Make start_date and end_date editable inline (date pickers) on each goal set card
+- When dates change, recalculate `checked_days` array length (preserve existing checks, extend/truncate as needed)
 
-Before uploading meal photos, compress them on the device using an HTML Canvas approach:
-- Create a utility function `compressImage(file: File, maxWidth = 1200, quality = 0.7): Promise<File>` in `src/lib/imageUtils.ts`
-- It loads the image into a canvas, resizes if wider than `maxWidth`, and exports as JPEG at the given quality
-- Call this in `MealUploadFlow.tsx` before the storage upload
+### Files to Modify
 
-**Files to modify:**
 | File | Change |
 |------|--------|
-| `src/pages/dietitian/ClientProfile.tsx` | Fix missing `addComment` function declaration (line 163) |
-| `src/pages/Login.tsx` | Add role check after login — reject mismatched role |
-| `src/lib/imageUtils.ts` | New: `compressImage()` utility |
-| `src/components/MealUploadFlow.tsx` | Call `compressImage()` before upload |
+| DB migration | Drop unique constraint, add `next_appointment` to profiles |
+| `src/pages/dietitian/ClientProfile.tsx` | Add next appointment picker in overview, editable start/end dates on goals, default end date from appointment |
 
