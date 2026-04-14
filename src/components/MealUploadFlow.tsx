@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, ArrowLeft } from 'lucide-react';
+import { compressImage } from '@/lib/imageUtils';
 import { MEAL_TYPES, DAY_LABELS } from '@/types';
 import type { MealType } from '@/types';
 
@@ -87,9 +88,9 @@ const MealUploadFlow = ({ open, onClose, periodStart, dateRange }: MealUploadFlo
 
     let photoUrl: string | null = null;
     if (selectedFile) {
-      const ext = selectedFile.name.split('.').pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('meal-photos').upload(path, selectedFile);
+      const compressed = await compressImage(selectedFile);
+      const path = `${user.id}/${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage.from('meal-photos').upload(path, compressed);
       if (uploadError) {
         toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
         setUploading(false);

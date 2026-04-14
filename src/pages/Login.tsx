@@ -22,7 +22,7 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       toast({ title: 'Login failed', description: error.message, variant: 'destructive' });
@@ -33,12 +33,26 @@ const Login = () => {
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
+      .eq('user_id', authData.user?.id ?? '')
       .single();
+
+    const actualRole = roleData?.role;
+    const expectedRole = mode === 'dietitian' ? 'dietitian' : 'client';
+
+    if (actualRole !== expectedRole) {
+      await supabase.auth.signOut();
+      toast({
+        title: 'Wrong account type',
+        description: `This account is not registered as a ${expectedRole}.`,
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
 
     setLoading(false);
 
-    if (roleData?.role === 'dietitian') {
+    if (actualRole === 'dietitian') {
       navigate('/dietitian');
     } else {
       navigate('/client');

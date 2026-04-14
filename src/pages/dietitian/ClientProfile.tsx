@@ -159,8 +159,7 @@ const ClientProfile = () => {
       await refreshGoals();
     }
   };
-
-
+  const addComment = async (mealId: string) => {
     if (!user || !commentText[mealId]?.trim()) return;
     await supabase.from('meal_comments').insert({
       meal_id: mealId, author_id: user.id, content: commentText[mealId],
