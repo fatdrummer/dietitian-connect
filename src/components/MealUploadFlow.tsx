@@ -90,7 +90,7 @@ const MealUploadFlow = ({ open, onClose, periodStart, dateRange }: MealUploadFlo
     if (selectedFile) {
       const compressed = await compressImage(selectedFile);
       const path = `${user.id}/${Date.now()}.jpg`;
-      const { error: uploadError } = await supabase.storage.from('meal-photos').upload(path, selectedFile);
+      const { error: uploadError } = await supabase.storage.from('meal-photos').upload(path, compressed);
       if (uploadError) {
         toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
         setUploading(false);
